@@ -519,7 +519,13 @@ def update_graph(
     global amended_portfolio_global, initial_portfolio, filt_df, temperature_score, companies, company_data, template_company_data, base_production_bm
 
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0] # to catch which widgets were pressed
-    
+    # TODO: make it selectable in GUI
+    # changed_scope = 'S1'
+    # changed_scope = 'S2'
+    changed_scope = 'S1S2'
+
+    temperature_score.scopes = [getattr(EScope, changed_scope)]
+
     if 'scenarios-cutting' or 'projection-method' in changed_id: # if winzorization params were changed 
         if  proj_meth == 'median':
             template_company_data.projection_controls.TREND_CALC_METHOD = staticmethod(pd.DataFrame.median)
@@ -557,11 +563,12 @@ def update_graph(
     
 
     # Covered companies analysis
-    coverage=filt_df[['company_id','ghg_s1s2','cumulative_target']].copy()
+    ghg = 'ghg_' + changed_scope.lower()
+    coverage=filt_df[['company_id',ghg,'cumulative_target']].copy()
     zeroE = Q_(0, 't CO2')
-    coverage['coverage_category'] = np.where(coverage['ghg_s1s2'].isnull(),
+    coverage['coverage_category'] = np.where(coverage[ghg].isnull(),
                                              np.where(coverage['cumulative_target']==zeroE, "Not Covered", "Covered only<Br>by target"),
-                                             np.where((coverage['ghg_s1s2'] >zeroE) & (coverage['cumulative_target']==zeroE),
+                                             np.where((coverage[ghg] >zeroE) & (coverage['cumulative_target']==zeroE),
                                                       "Covered only<Br>by emissions",
                                                       "Covered by<Br>emissions and targets"))
     dfg=coverage.groupby('coverage_category').count().reset_index()
@@ -598,14 +605,17 @@ def update_graph(
     
 
     # Calculate different weighting methods
-    def agg_score(agg_method):
+    def agg_score(agg_method, scope):
         temperature_score = TemperatureScore(time_frames = [ETimeFrames.LONG],
-                                             scopes=[EScope.S1S2],
+                                             scopes=[getattr(EScope, scope)],
                                              aggregation_method=agg_method) # Options for the aggregation method are WATS, TETS, AOTS, MOTS, EOTS, ECOTS, and ROTS
         aggregated_scores = temperature_score.aggregate_scores(filt_df)
-        return [agg_method.value,aggregated_scores.long.S1S2.all.score]
+        scope_scores = getattr(aggregated_scores.long, scope)
+        if scope_scores is None:
+            raise AttributeError('Scope ' + scope + ' not found in aggregate scores')
+        return [agg_method.value, scope_scores.all.score]
 
-    agg_temp_scores = [agg_score(i) for i in PortfolioAggregationMethod]
+    agg_temp_scores = [agg_score(i, changed_scope) for i in PortfolioAggregationMethod]
     methods, scores = list(map(list, zip(*agg_temp_scores)))
     df_temp_score = pd.DataFrame(data={0:pd.Series(methods,dtype='string'), 1:pd.Series(scores, dtype='pint[delta_degC]')})
     df_temp_score[1]=pd.to_numeric(df_temp_score[1].astype('pint[delta_degC]').values.quantity.m).round(2) # rounding score
