@@ -80,7 +80,7 @@ logger.info('Load dummy portfolio from {}. You could upload your own portfolio u
 
 temperature_score = TemperatureScore(
     time_frames = [ETimeFrames.LONG],
-    scopes=[EScope.S1S2],
+    scopes=[EScope.S1, EScope.S2, EScope.S1S2],
     aggregation_method=PortfolioAggregationMethod.WATS # Options for the aggregation method are WATS, TETS, AOTS, MOTS, EOTS, ECOTS, and ROTS
 )
 
@@ -634,13 +634,14 @@ def update_graph(
     port_score_diff_methods_fig.update_layout(transition_duration=500)
 
     # input for the dash table
-    df_for_output_table=filt_df[['company_name', 'company_id','region','sector','cumulative_budget','investment_value','trajectory_score', 'target_score','temperature_score']].copy()  
+    df_for_output_table=filt_df[['company_name', 'company_id','region','sector', 'scope', 'cumulative_budget','investment_value','trajectory_score', 'target_score','temperature_score']].copy()
+    df_for_output_table['scope']=df_for_output_table['scope'].astype('string')
     df_for_output_table['temperature_score']=df_for_output_table['temperature_score'].astype('pint[delta_degC]').values.quantity.m # f"{q:.2f~#P}"
     df_for_output_table['trajectory_score']=pd.to_numeric(df_for_output_table['trajectory_score'].astype('pint[delta_degC]').values.quantity.m).round(2)
     df_for_output_table['target_score']=pd.to_numeric(df_for_output_table['target_score'].astype('pint[delta_degC]').values.quantity.m).round(2)
     df_for_output_table['cumulative_budget'] = pd.to_numeric(df_for_output_table['cumulative_budget'].astype('pint[Mt CO2]').values.quantity.m).round(2)
     df_for_output_table['investment_value'] = df_for_output_table['investment_value'].apply(lambda x: "${:,.1f} Mn".format((x/1000000))) # formating column
-    df_for_output_table.rename(columns={'company_name':'Name', 'company_id':'ISIN','region':'Region','sector':'Industry','cumulative_budget':'Emissions budget','investment_value':'Notional','trajectory_score':'Historical emissions score', 'target_score':'Target score','temperature_score':'Weighted temperature score'}, inplace=True)
+    df_for_output_table.rename(columns={'company_name':'Name', 'company_id':'ISIN','region':'Region','sector':'Industry','scope':'Scope','cumulative_budget':'Emissions budget','investment_value':'Notional','trajectory_score':'Historical emissions score', 'target_score':'Target score','temperature_score':'Weighted temperature score'}, inplace=True)
 
     return (
         fig1, fig5, 

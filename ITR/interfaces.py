@@ -227,6 +227,8 @@ class ScoreAggregation(BaseModel):
 
 
 class ScoreAggregationScopes(BaseModel):
+    S1: Optional[ScoreAggregation]
+    S2: Optional[ScoreAggregation]
     S1S2: Optional[ScoreAggregation]
     S3: Optional[ScoreAggregation]
     S1S2S3: Optional[ScoreAggregation]
