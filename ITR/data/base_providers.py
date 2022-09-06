@@ -106,15 +106,16 @@ class BaseProviderIntensityBenchmark(IntensityBenchmarkDataProvider):
         self.temp_config = tempscore_config
         self.column_config = column_config
 
-    def get_SDA_intensity_benchmarks(self, company_info_at_base_year: pd.DataFrame) -> pd.DataFrame:
+    def get_SDA_intensity_benchmarks(self, company_info_at_base_year: pd.DataFrame, scope) -> pd.DataFrame:
         """
         Overrides subclass method
         returns a Dataframe with intensity benchmarks per company_id given a region and sector.
         :param company_info_at_base_year: DataFrame with at least the following columns :
         ColumnsConfig.COMPANY_ID, ColumnsConfig.BASE_EI, ColumnsConfig.SECTOR and ColumnsConfig.REGION
+        :param scope: target scope - S1, S2, S1S2, etc.
         :return: A DataFrame with company and SDA intensity benchmarks per calendar year per row
         """
-        intensity_benchmarks = self._get_intensity_benchmarks(company_info_at_base_year)
+        intensity_benchmarks = self._get_intensity_benchmarks(company_info_at_base_year, getattr(EScope, scope))
         decarbonization_paths = self._get_decarbonizations_paths(intensity_benchmarks)
         last_ei = intensity_benchmarks[self.temp_config.CONTROLS_CONFIG.target_end_year]
         ei_base = company_info_at_base_year[self.column_config.BASE_EI]
@@ -364,8 +365,16 @@ class BaseCompanyDataProvider(CompanyDataProvider):
         :param company_ids: A list of company IDs
         :return: A pandas DataFrame with projected intensity trajectories per company, indexed by company_id
         """
-        trajectory_list = [self._convert_projections_to_series(c, self.column_config.PROJECTED_EI) for c in
-                           self.get_company_data(company_ids)]
+        trajectory_list = [ ]
+
+        for c in self.get_company_data(company_ids):
+            if c.target_data is not None:
+                for td in c.target_data:
+                    trajectory_list.append(self._convert_projections_to_series(c, self.column_config.PROJECTED_EI, td.target_scope))
+            else:
+                # Target scope not specified, set to default S1S2
+                trajectory_list.append(self._convert_projections_to_series(c, self.column_config.PROJECTED_EI, EScope.S1S2))
+
         if trajectory_list:
             with warnings.catch_warnings():
                 # pd.DataFrame.__init__ (in pandas/core/frame.py) ignores the beautiful dtype information adorning the pd.Series list elements we are providing.  Sad!

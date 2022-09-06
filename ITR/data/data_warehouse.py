@@ -64,7 +64,7 @@ class DataWarehouse(ABC):
             projected_ei=projected_targets,
             projected_production=projected_production).rename(self.column_config.CUMULATIVE_TARGET)
         df_budget = self._get_cumulative_emissions(
-            projected_ei=self.benchmarks_projected_ei.get_SDA_intensity_benchmarks(company_info_at_base_year),
+            projected_ei=self.benchmarks_projected_ei.get_SDA_intensity_benchmarks(company_info_at_base_year, 'S1S2'),
             projected_production=projected_production).rename(self.column_config.CUMULATIVE_BUDGET)
         df_company_data = pd.concat([df_company_data, df_trajectory, df_target, df_budget], axis=1)
         df_company_data[self.column_config.BENCHMARK_GLOBAL_BUDGET] = \
