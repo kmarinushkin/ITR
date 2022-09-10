@@ -226,6 +226,19 @@ class BaseCompanyDataProvider(CompanyDataProvider):
         else:
             return companies
 
+    def _get_target_scopes(self, projected_targets: ICompanyEIProjectionsScopes) -> List[EScope]:
+        """
+        Get target scopes from projected targets.
+        Create a list of scopes, for which targets exist.
+        :param projected_targets: projected scopes with values
+        :return: list of target scopes
+        """
+        target_scopes = [ ]
+        for es in EScope.get_result_scopes():
+            if projected_targets[es.name]:
+                target_scopes.append(es)
+        return target_scopes
+
     # Because this presently defaults to S1S2 always, targets spec'd for S1 only ro S1+S2+S3 are not well-handled.
     def _convert_projections_to_series(self, company: ICompanyData, feature: str,
                                        scope: EScope = EScope.S1S2) -> pd.Series:
@@ -238,6 +251,8 @@ class BaseCompanyDataProvider(CompanyDataProvider):
         company_dict = company.dict()
         production_units = company_dict[self.column_config.PRODUCTION_METRIC]['units']
         emissions_units = company_dict[self.column_config.EMISSIONS_METRIC]['units']
+        target_scopes = self._get_target_scopes(company_dict[self.column_config.PROJECTED_TARGETS])
+
         if company_dict[feature][scope.name]:
             projections = company_dict[feature][scope.name]['projections']
         else:
