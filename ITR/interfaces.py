@@ -173,7 +173,7 @@ class EScope(SortableEnum):
 
         :return: A list of EScope objects
         """
-        return [cls.S1S2, cls.S3, cls.S1S2S3]
+        return [cls.S1, cls.S2, cls.S1S2, cls.S3, cls.S1S2S3]
 
 
 class ETimeFrames(SortableEnum):
