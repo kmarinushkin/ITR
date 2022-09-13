@@ -251,7 +251,6 @@ class BaseCompanyDataProvider(CompanyDataProvider):
         company_dict = company.dict()
         production_units = company_dict[self.column_config.PRODUCTION_METRIC]['units']
         emissions_units = company_dict[self.column_config.EMISSIONS_METRIC]['units']
-        target_scopes = self._get_target_scopes(company_dict[self.column_config.PROJECTED_TARGETS])
 
         if company_dict[feature][scope.name]:
             projections = company_dict[feature][scope.name]['projections']
@@ -378,33 +377,36 @@ class BaseCompanyDataProvider(CompanyDataProvider):
             exclude=['projected_targets', 'projected_intensities', 'historic_data']).set_index(
             self.column_config.COMPANY_ID)
 
-    def get_company_projected_trajectories(self, company_ids: List[str]) -> pd.DataFrame:
-        """
-        :param company_ids: A list of company IDs
-        :return: A pandas DataFrame with projected intensity trajectories per company, indexed by company_id
-        """
-        trajectory_list = [self._convert_projections_to_series(c, self.column_config.PROJECTED_EI) for c in
-                           self.get_company_data(company_ids)]
-        if trajectory_list:
-            with warnings.catch_warnings():
-                # pd.DataFrame.__init__ (in pandas/core/frame.py) ignores the beautiful dtype information adorning the pd.Series list elements we are providing.  Sad!
-                warnings.simplefilter("ignore")
-                return pd.DataFrame(trajectory_list)
-        return pd.DataFrame()
+    def get_company_projected(self, company_ids: List[str], column) -> pd.DataFrame:
+        target_list = [ ]
+
+        for c in self.get_company_data(company_ids):
+            company_dict = c.dict()
+            target_scopes = self._get_target_scopes(company_dict[self.column_config.PROJECTED_TARGETS])
+            if not len(target_scopes):
+                target_scopes = [EScope.S1S2]
+            # TODO: Add multiindex
+            for scope in [target_scopes[0]]:
+                s_projection = self._convert_projections_to_series(c, column, scope)
+                df_projection = pd.DataFrame(data=s_projection).T
+                df_projection['scope'] = scope
+                target_list.append(df_projection)
+
+        return pd.concat(target_list)
 
     def get_company_projected_targets(self, company_ids: List[str]) -> pd.DataFrame:
         """
         :param company_ids: A list of company IDs
         :return: A pandas DataFrame with projected intensity targets per company, indexed by company_id
         """
-        target_list = [self._convert_projections_to_series(c, self.column_config.PROJECTED_TARGETS)
-                       for c in self.get_company_data(company_ids)]
-        if target_list:
-            with warnings.catch_warnings():
-                # pd.DataFrame.__init__ (in pandas/core/frame.py) ignores the beautiful dtype information adorning the pd.Series list elements we are providing.  Sad!
-                warnings.simplefilter("ignore")
-                return pd.DataFrame(target_list)
-        return pd.DataFrame()
+        return self.get_company_projected(company_ids, self.column_config.PROJECTED_TARGETS)
+
+    def get_company_projected_trajectories(self, company_ids: List[str]) -> pd.DataFrame:
+        """
+        :param company_ids: A list of company IDs
+        :return: A pandas DataFrame with projected intensity trajectories per company, indexed by company_id
+        """
+        return self.get_company_projected(company_ids, self.column_config.PROJECTED_EI)
 
 
 class EITrajectoryProjector(object):
