@@ -248,14 +248,14 @@ class BaseCompanyDataProvider(CompanyDataProvider):
                 for s in scopes:
                     projection_series[s] = pd.Series(
                         {p['year']: p['value'] for p in company_dict[feature][s]['projections']},
-                        name=company.company_id, dtype=f'pint[{emissions_units}/{production_units}]')
+                        name=(company.company_id, scope.name), dtype=f'pint[{emissions_units}/{production_units}]')
                 series_adder = partial(pd.Series.add, fill_value=0)
                 res = reduce(series_adder, projection_series.values())
                 return res
             elif len(projection_scopes) == 0:
                 return pd.Series(
                     {year: np.nan for year in range(self.historic_years[-1] + 1, self.projection_controls.TARGET_YEAR + 1)},
-                    name=company.company_id, dtype=f'pint[{emissions_units}/{production_units}]'
+                    name=(company.company_id, scope.name), dtype=f'pint[{emissions_units}/{production_units}]'
                 )
             else:
                 # This clause is only accessed if the scope is S1S2 or S1S2S3 of which only one scope is provided.
@@ -263,7 +263,7 @@ class BaseCompanyDataProvider(CompanyDataProvider):
                 # projections = []
         return pd.Series(
             {p['year']: p['value'] for p in projections},
-            name=company.company_id, dtype=f'pint[{emissions_units}/{production_units}]')
+            name=(company.company_id, scope.name), dtype=f'pint[{emissions_units}/{production_units}]')
 
     def _calculate_target_projections(self, production_bm: BaseProviderProductionBenchmark):
         """
@@ -347,6 +347,8 @@ class BaseCompanyDataProvider(CompanyDataProvider):
                           self.column_config.BASE_YEAR_PRODUCTION,
                           self.column_config.GHG_SCOPE12]]
         ei_at_base = self._get_company_intensity_at_year(base_year, company_ids).rename(self.column_config.BASE_EI)
+        # TODO: don't drop 'scope' from MultiIndex
+        ei_at_base.index = ei_at_base.index.droplevel(1)
         return company_info.merge(ei_at_base, left_index=True, right_index=True)
 
     def get_company_fundamentals(self, company_ids: List[str]) -> pd.DataFrame:
