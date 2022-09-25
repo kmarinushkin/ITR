@@ -37,13 +37,14 @@ class BaseProviderProductionBenchmark(ProductionBenchmarkDataProvider):
         self._productions_benchmarks = production_benchmarks
 
     # Note that bencharmk production series are dimensionless.
-    def _convert_benchmark_to_series(self, benchmark: IBenchmark) -> pd.Series:
+    def _convert_benchmark_to_series(self, benchmark: IBenchmark, scope: EScope = EScope.S1S2) -> pd.Series:
         """
         extracts the company projected intensity or production targets for a given scope
         :param scope: a scope
         :return: pd.Series
         """
-        return pd.Series({r.year: r.value for r in benchmark.projections}, name=(benchmark.region, benchmark.sector),
+        return pd.Series({r.year: r.value for r in benchmark.projections},
+                         name=(scope.name, benchmark.region, benchmark.sector),
                          dtype=f'pint[{benchmark.benchmark_metric.units}]')
 
     # Production benchmarks are dimensionless.  S1S2 has nothing to do with any company data.
@@ -56,9 +57,9 @@ class BaseProviderProductionBenchmark(ProductionBenchmarkDataProvider):
         """
         result = []
         for bm in self._productions_benchmarks.dict()[str(scope)]['benchmarks']:
-            result.append(self._convert_benchmark_to_series(IBenchmark.parse_obj(bm)))
+            result.append(self._convert_benchmark_to_series(IBenchmark.parse_obj(bm), scope))
         df_bm = pd.DataFrame(result)
-        df_bm.index.names = [self.column_config.REGION, self.column_config.SECTOR]
+        df_bm.index.names = [self.column_config.SCOPE, self.column_config.REGION, self.column_config.SECTOR]
 
         return df_bm
 
@@ -91,7 +92,8 @@ class BaseProviderProductionBenchmark(ProductionBenchmarkDataProvider):
         mask = benchmark_regions.isin(benchmark_projection.reset_index()[self.column_config.REGION])
         benchmark_regions.loc[~mask] = "Global"
 
-        benchmark_projection = benchmark_projection.loc[list(zip(benchmark_regions, sectors))]
+        scope_for_zip = [scope.name] * len(sectors)
+        benchmark_projection = benchmark_projection.loc[list(zip(scope_for_zip, benchmark_regions, sectors))]
         benchmark_projection.index = sectors.index
         return benchmark_projection
 
@@ -143,15 +145,6 @@ class BaseProviderIntensityBenchmark(IntensityBenchmarkDataProvider):
         # TODO: does this still throw a warning when processing a NaN?  convert to base units before accessing .magnitude
         return intensity_benchmark_row.apply(lambda x: (x - last_ei) / (first_ei - last_ei))
 
-    def _convert_benchmark_to_series(self, benchmark: IBenchmark) -> pd.Series:
-        """
-        extracts the company projected intensities or targets for a given scope
-        :param scope: a scope
-        :return: pd.Series
-        """
-        return pd.Series({p.year: p.value for p in benchmark.projections}, name=(benchmark.region, benchmark.sector),
-                         dtype=f'pint[{benchmark.benchmark_metric.units}]')
-
     def _get_projected_intensities(self, scope: EScope = EScope.S1S2) -> pd.DataFrame:
         """
         Converts IEmissionIntensityBenchmarkScopes into dataframe for a scope
@@ -160,12 +153,12 @@ class BaseProviderIntensityBenchmark(IntensityBenchmarkDataProvider):
         """
         results = []
         for bm in self._EI_benchmarks.__getattribute__(str(scope)).benchmarks:
-            results.append(self._convert_benchmark_to_series(bm))
+            results.append(self._convert_benchmark_to_series(bm, scope))
         with warnings.catch_warnings():
             # pd.DataFrame.__init__ (in pandas/core/frame.py) ignores the beautiful dtype information adorning the pd.Series list elements we are providing.  Sad!
             warnings.simplefilter("ignore")
             df_bm = pd.DataFrame(results)
-        df_bm.index.names = [self.column_config.REGION, self.column_config.SECTOR]
+        df_bm.index.names = [self.column_config.SCOPE, self.column_config.REGION, self.column_config.SECTOR]
         return df_bm
 
     def _get_intensity_benchmarks(self, company_sector_region_info: pd.DataFrame,
@@ -184,7 +177,8 @@ class BaseProviderIntensityBenchmark(IntensityBenchmarkDataProvider):
         reg_sec.loc[merged_df._merge == 'left_only', self.column_config.REGION] = "Global" # change region in missing combination to "Global"
         sectors = reg_sec.sector
         regions = reg_sec.region
-        benchmark_projection = benchmark_projection.loc[list(zip(regions, sectors))]
+        scope_for_zip = [scope.name] * len(sectors)
+        benchmark_projection = benchmark_projection.loc[list(zip(scope_for_zip, regions, sectors))]
         benchmark_projection.index = sectors.index
         return benchmark_projection
 
