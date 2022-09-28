@@ -36,7 +36,8 @@ class DataWarehouse(ABC):
         self.temp_config = tempscore_config
         self.column_config = column_config
         self.company_data = company_data
-        self.company_data._calculate_target_projections(benchmark_projected_production)
+        self.company_data._calculate_target_projections(benchmark_projected_production,
+                                                        benchmarks_projected_ei.primary_scope)
 
         # If benchmark's primary scope is S3 - skip shifting data into S1S2
         if benchmarks_projected_ei.primary_scope == EScope.S3:
@@ -80,7 +81,7 @@ class DataWarehouse(ABC):
             warnings.simplefilter("ignore")
             # See https://github.com/hgrecco/pint-pandas/issues/128
             projected_production = self.benchmark_projected_production.get_company_projected_production(
-                company_info_at_base_year).sort_index()
+                company_info_at_base_year, self.benchmarks_projected_ei.primary_scope).sort_index()
 
         # trajectories are projected from historic data and we are careful to fill all gaps between historic and projections
         projected_trajectories = self.company_data.get_company_projected_trajectories(company_ids)
