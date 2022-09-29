@@ -36,6 +36,9 @@ class BaseProviderProductionBenchmark(ProductionBenchmarkDataProvider):
         self.temp_config = tempscore_config
         self.column_config = column_config
         self._productions_benchmarks = production_benchmarks
+        # production benchmarks are input for S1S2, but relevant for all scopes
+        self._productions_benchmarks.S3 = self._productions_benchmarks.S1S2
+        self._productions_benchmarks.S1S2S3 = self._productions_benchmarks.S1S2
 
     # Note that benchmark production series are dimensionless.
     def _convert_benchmark_to_series(self, benchmark: IBenchmark, scope: EScope) -> pd.Series:
