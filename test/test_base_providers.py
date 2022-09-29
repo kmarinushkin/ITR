@@ -201,6 +201,10 @@ class TestBaseProvider(unittest.TestCase):
         # Verify S3 is NOT folded into S1S2
         self.assertNotEqual(company_with_s3.ghg_s3, 0)
 
+    def test_production_benchmark_all_scopes(self):
+        pbm = self.base_production_bm._productions_benchmarks
+        self.assertEqual(len(pbm.AllScopes.benchmarks), 42)
+
 
 if __name__ == "__main__":
     test = TestBaseProvider()
