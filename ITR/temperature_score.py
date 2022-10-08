@@ -43,6 +43,26 @@ class TemperatureScore(PortfolioAggregation):
         if grouping is not None:
             self.grouping = grouping
 
+    def _get_weighted_budget(self, q_s1s2: Quantity, q_s3: Quantity,
+                             scope: EScope, global_budget: Quantity) -> Quantity:
+        if q_s1s2 == None or np.isnan(q_s1s2.m) or \
+           q_s3 == None or np.isnan(q_s3.m):
+            return global_budget
+
+        if q_s1s2.units != q_s3.units:
+            raise ValueError(f"Units mismatch for S1S2 ({q_s1s2.units}) and S3 ({q_s3.units})")
+
+        if scope == EScope.S1S2:
+            weight = q_s1s2.m / (q_s1s2.m + q_s3.m)
+        elif scope == EScope.S3:
+            weight = q_s3.m / (q_s1s2.m + q_s3.m)
+        elif scope == EScope.S1S2S3:
+            weight = 1.0
+        else:
+            raise ValueError(f"Unexpected scope provided: {scope}")
+
+        return weight * global_budget
+
     def get_score(self, scorable_row: pd.Series) -> Tuple[
         Quantity['delta_degC'], Quantity['delta_degC'], float, Quantity['delta_degC'], float, EScoreResultType]:
         """
@@ -52,6 +72,11 @@ class TemperatureScore(PortfolioAggregation):
         :return: The temperature score, which is a tuple of (TEMPERATURE_SCORE, TRAJECTORY_SCORE, TRAJECTORY_OVERSHOOT,
                         TARGET_SCORE, TARGET_OVERSHOOT, TEMPERATURE_RESULTS])
         """
+
+        weighted_budget = self._get_weighted_budget(q_s1s2=scorable_row[self.c.COLS.GHG_SCOPE12],
+                                                    q_s3=scorable_row[self.c.COLS.GHG_SCOPE3],
+                                                    scope=scorable_row[self.c.COLS.SCOPE],
+                                                    global_budget=scorable_row[self.c.COLS.BENCHMARK_GLOBAL_BUDGET])
 
         # If both trajectory and target data missing assign default value
         if (np.isnan(scorable_row[self.c.COLS.CUMULATIVE_TARGET]) and
@@ -66,7 +91,7 @@ class TemperatureScore(PortfolioAggregation):
             trajectory_overshoot_ratio = scorable_row[self.c.COLS.CUMULATIVE_TRAJECTORY] / scorable_row[
                 self.c.COLS.CUMULATIVE_BUDGET]
             trajectory_temperature_score = scorable_row[self.c.COLS.BENCHMARK_TEMP] + \
-                (scorable_row[self.c.COLS.BENCHMARK_GLOBAL_BUDGET] * (trajectory_overshoot_ratio - 1.0) *
+                (weighted_budget * (trajectory_overshoot_ratio - 1.0) *
                     self.c.CONTROLS_CONFIG.tcre_multiplier)
             score = trajectory_temperature_score
             return score, trajectory_temperature_score, trajectory_overshoot_ratio, \
@@ -79,10 +104,10 @@ class TemperatureScore(PortfolioAggregation):
                 self.c.COLS.CUMULATIVE_BUDGET]
 
             target_temperature_score = scorable_row[self.c.COLS.BENCHMARK_TEMP] + \
-                (scorable_row[self.c.COLS.BENCHMARK_GLOBAL_BUDGET] * (target_overshoot_ratio - 1.0) *
+                (weighted_budget * (target_overshoot_ratio - 1.0) *
                     self.c.CONTROLS_CONFIG.tcre_multiplier)
             trajectory_temperature_score = scorable_row[self.c.COLS.BENCHMARK_TEMP] + \
-                (scorable_row[self.c.COLS.BENCHMARK_GLOBAL_BUDGET] * (trajectory_overshoot_ratio - 1.0) *
+                (weighted_budget * (trajectory_overshoot_ratio - 1.0) *
                     self.c.CONTROLS_CONFIG.tcre_multiplier)
             score = target_temperature_score * scorable_row[self.c.COLS.TARGET_PROBABILITY] + \
                 trajectory_temperature_score * (1 - scorable_row[self.c.COLS.TARGET_PROBABILITY])

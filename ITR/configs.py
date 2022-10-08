@@ -78,7 +78,6 @@ class ColumnsConfig:
     TARGET_OVERSHOOT = 'target_overshoot_ratio'
 
     # Output columns
-    WEIGHTED_TEMPERATURE_SCORE = "weighted_temperature_score"
     CONTRIBUTION_RELATIVE = "contribution_relative"
     CONTRIBUTION = "contribution"
 
