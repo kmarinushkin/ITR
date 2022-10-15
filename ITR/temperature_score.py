@@ -284,7 +284,7 @@ class TemperatureScore(PortfolioAggregation):
 
         filtered_data = data[cond_timeframe &
                              cond_scope&
-                             cond_s3_empty]
+                             cond_s3_empty].copy()
         filtered_data[self.grouping] = filtered_data[self.grouping].fillna("unknown")
         return filtered_data
 
