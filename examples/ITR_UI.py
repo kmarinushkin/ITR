@@ -63,7 +63,7 @@ if len(sys.argv)>1:
     args = parser.parse_args()
     company_data_path = args.file
 else:
-    company_data_path = os.path.join(root, examples_dir, data_dir, "20220720 ITR Tool Sample Data.xlsx")
+    company_data_path = os.path.join(root, examples_dir, data_dir, "20220927 ITR V2 Sample Data.xlsx")
 
 
 # load company data

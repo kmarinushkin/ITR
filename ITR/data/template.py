@@ -69,6 +69,8 @@ class TemplateProviderCompany(BaseCompanyDataProvider):
         :return: List of ICompanyData objects
         """
 
+        template_version = 1
+
         def _fixup_name(x):
             prefix, _, suffix = x.partition('_')
             suffix = suffix.replace('ghg_', '')
@@ -79,11 +81,28 @@ class TemplateProviderCompany(BaseCompanyDataProvider):
         df_company_data = pd.read_excel(excel_path, sheet_name=None, skiprows=0)
 
         input_data_sheet = TabsConfig.TEMPLATE_INPUT_DATA
+        if TabsConfig.TEMPLATE_INPUT_DATA_V2:
+            template_version = 2
+            input_data_sheet = TabsConfig.TEMPLATE_INPUT_DATA_V2
+        else:
+            input_data_sheet = TabsConfig.TEMPLATE_INPUT_DATA
         try:
             df = df_company_data[input_data_sheet]
         except KeyError as e:
             logger.error(f"Tab {input_data_sheet} is required in input Excel file.")
-            raise
+            raise KeyError
+        if template_version==2:
+            esg_data_sheet = TabsConfig.TEMPLATE_ESG_DATA_V2
+            try:
+                df_esg = df_company_data[esg_data_sheet].drop(columns='company_lei').copy().iloc[0:45]
+                # TODO: AttributeError: 'DataFrame' object has no attribute 'sub_metric'
+                # df_esg.loc[df_esg.sub_metric.map(lambda x: type(x)!=str), 'sub_metric'] = ''
+            except KeyError as e:
+                logger.error(f"Tab {esg_data_sheet} is required in input Excel file.")
+                raise KeyError
+            df_esg.loc[:, [ColumnsConfig.COMPANY_NAME, ColumnsConfig.COMPANY_ID]] = (
+                df_esg.loc[:, [ColumnsConfig.COMPANY_NAME, ColumnsConfig.COMPANY_ID]].fillna(method='ffill')
+                )
 
         df['exposure'].fillna('presumed_equity', inplace=True)
         # TODO: Fix market_cap column naming inconsistency
@@ -120,13 +139,18 @@ class TemplateProviderCompany(BaseCompanyDataProvider):
             raise ValueError(error_message)
 
         # ignore company data that does not come with emissions and/or production metrics
-        missing_esg_metrics_df = df_fundamentals[ColumnsConfig.COMPANY_ID][
-            df_fundamentals[ColumnsConfig.EMISSIONS_METRIC].isnull() | df_fundamentals[ColumnsConfig.PRODUCTION_METRIC].isnull()]
+        if template_version==1:
+            missing_esg_metrics_df = df_fundamentals[ColumnsConfig.COMPANY_ID][
+                df_fundamentals[ColumnsConfig.EMISSIONS_METRIC].isnull() | df_fundamentals[ColumnsConfig.PRODUCTION_METRIC].isnull()]
+        else:
+            missing_production_idx = df_fundamentals.index.difference(df_esg[df_esg.metric.eq('production')].company_id.unique())
+            missing_esg_idx = df_fundamentals.index.difference(df_esg[df_esg.metric.isin(['s1', 's1s2', 's1s2s3'])].company_id.unique())
+            missing_esg_metrics_df = df_fundamentals.loc[missing_production_idx.union(missing_esg_idx)]
+
         if len(missing_esg_metrics_df)>0:
             logger.warning(f"Missing ESG metrics for companies with ID (will be ignored): "
-                           f"{missing_esg_metrics_df.to_list()}.")
+                           f"{missing_esg_metrics_df.index}.")
             df_fundamentals = df_fundamentals[~df_fundamentals.index.isin(missing_esg_metrics_df.index)]
-
 
         # The nightmare of naming columns 20xx_metric instead of metric_20xx...and potentially dealing with data from 1990s...
         historic_columns = [col for col in df_fundamentals.columns if col[:1].isdigit()]

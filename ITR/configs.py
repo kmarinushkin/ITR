@@ -148,6 +148,8 @@ class TabsConfig:
     PROJECTED_TARGET = "projected_target"
     HISTORIC_DATA = "historic_data"
     TEMPLATE_INPUT_DATA = 'ITR input data'
+    TEMPLATE_INPUT_DATA_V2 = 'ITR V2 input data'
+    TEMPLATE_ESG_DATA_V2 = 'ITR V2 esg data'
     TEMPLATE_TARGET_DATA = 'ITR target input data'
 
 
